@@ -26,6 +26,7 @@ function shiftYm(ym, k){ var p = ym.split('-'); var dt = new Date(+p[0], +p[1]-1
 function emo(c){ return (S.d && S.d.emoji[c]) || '📦'; }
 function catIdx(c){ var i = S.d.expenseCats.indexOf(c); return i < 0 ? 8 : i; }
 function toast(msg){ var t = $('toast'); t.textContent = msg; t.style.display = 'none'; void t.offsetWidth; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(function(){ t.style.display = 'none'; }, 2200); }
+function confirmTap(el, msg){ if (el.getAttribute('data-sure') === '1') return true; el.setAttribute('data-sure', '1'); el.textContent = 'แน่ใจ?'; toast(msg); setTimeout(function(){ if (el.isConnected) { el.removeAttribute('data-sure'); el.textContent = 'ยกเลิก'; } }, 3000); return false; }
 function fail(e){ S.busy = false; toast((e && e.message) || 'เกิดข้อผิดพลาด ลองใหม่อีกครั้ง'); }
 function num(v){ var n = Number(String(v == null ? '' : v).replace(/,/g, '').trim()); return isFinite(n) ? n : NaN; }
 function run(fn){ return JDAPI.call(fn, Array.prototype.slice.call(arguments, 2)); }
@@ -58,10 +59,10 @@ function render(){
   renderTabs();
   var v = $('view');
   v.className = 'wrap' + (S.animate ? '' : ' noanim');
-  var PAGES = { 0: renderHome, 1: renderWallet, 2: renderDue, 3: renderPlan, 4: renderList, 5: renderSettings, 6: renderMore, 7: renderDebt, 8: renderDueDetail, 9: renderStats, 10: renderLoans, 11: renderBillsPage };
+  var PAGES = { 0: renderHome, 1: renderWallet, 2: renderDue, 3: renderPlan, 4: renderList, 5: renderSettings, 6: renderMore, 7: renderDebt, 8: renderDueDetail, 9: renderStats, 10: renderLoans, 11: renderBillsPage, 12: renderShortcut };
   if (!PAGES[S.tab] || (S.tab === 8 && !dueItem(S.dueSel))) S.tab = S.tab === 8 ? 2 : 0;
   var h = PAGES[S.tab]();
-  var BACK = { 3: [6, 'อื่นๆ'], 5: [6, 'อื่นๆ'], 7: [6, 'อื่นๆ'], 9: [6, 'อื่นๆ'], 10: [6, 'อื่นๆ'], 11: [2, 'ต้องจ่าย'], 8: [2, 'ต้องจ่าย'] };
+  var BACK = { 3: [6, 'อื่นๆ'], 5: [6, 'อื่นๆ'], 7: [6, 'อื่นๆ'], 9: [6, 'อื่นๆ'], 10: [6, 'อื่นๆ'], 12: [6, 'อื่นๆ'], 11: [2, 'ต้องจ่าย'], 8: [2, 'ต้องจ่าย'] };
   if (BACK[S.tab]) h = '<div class="in full"><button type="button" class="press" data-act="tab" data-i="' + BACK[S.tab][0] + '" style="border:0;background:transparent;color:var(--lavD);font-weight:700;font-size:14px;padding:4px 0;min-height:36px">‹ ' + BACK[S.tab][1] + '</button></div>' + h;
   v.innerHTML = h;
   masonry(v);
@@ -274,10 +275,36 @@ function renderMore(){
     [7, '📉', 'จัดการหนี้ & จำลองโปะหนี้', 'เพิ่ม/แก้หนี้ · โปะเพิ่มแล้วหมดเร็วขึ้นแค่ไหน', '#FFE3E3'],
     [11, '🔁', 'จัดการค่าใช้จ่ายประจำ', 'เพิ่ม/แก้ · ตั้งบันทึกอัตโนมัติ', '#EEE8FB'],
     [10, '🤝', 'ยืม / ให้ยืม', 'คนอื่นติดเรา ฿' + money(lo), '#FFF3D6'],
+    [12, '📱', 'คำสั่งลัด iPhone', 'ปิดแอปธนาคารแล้วจดสลิปให้เอง · SMS บัตร · ปุ่มเงินสด', '#E3F4FF'],
     [5, '⚙️', 'ตั้งค่า', 'เตือนรายวัน · งบรายหมวด · โควตาข้อความ · ลบข้อมูล', '#E8EEFC']];
   var h = '<div class="in"><h1 style="font-size:24px">อื่นๆ</h1></div><div class="card in full" style="padding:4px 14px">';
   items.forEach(function(it){ h += '<button type="button" class="press row" data-act="tab" data-i="' + it[0] + '" style="width:100%;border:0;border-top:1px solid #F1EAF4;background:transparent;padding:12px 0;text-align:left;gap:12px;min-height:60px"><div class="emo" style="width:40px;height:40px;font-size:20px;background:' + it[4] + '">' + it[1] + '</div><div style="flex:1 1 auto;min-width:0"><div style="font-size:15px;font-weight:600">' + it[2] + '</div><div class="small muted">' + it[3] + '</div></div><span style="color:#B9AFCB;font-size:20px">›</span></button>'; });
   return h + '</div>';
+}
+function renderShortcut(){
+  if (S.sc === undefined || S.sc === null) {
+    if (!S.scLoading) { S.scLoading = true; run('apiScList', TOKEN).then(function(l){ S.scLoading = false; S.sc = l || []; if (S.tab === 12) render(); }).catch(function(e){ S.scLoading = false; S.sc = []; fail(e); }); }
+  }
+  var h = '<div class="in"><h1 style="font-size:24px">📱 คำสั่งลัด iPhone</h1><div class="small muted" style="margin-top:4px">ให้ iPhone จดให้เอง ไม่ต้องเปิด LINE</div></div>';
+  h += '<div class="card in full" style="display:grid;gap:10px">' + [
+    ['🏦', 'ปิดแอปธนาคาร', 'จดสลิปล่าสุดให้ทันที แล้วถามว่าถูกไหม'],
+    ['💳', 'มี SMS รูดบัตร', 'จดลงบัตรใบนั้นให้เอง'],
+    ['💵', 'ปุ่มจ่ายเงินสด', 'แตะ พิมพ์ ข้าว 60 จบ'],
+    ['🔁', 'ส่งสลิปใน LINE ด้วยก็ได้', 'ระบบรู้ว่าใบเดียวกัน ไม่จดซ้ำ']].map(function(r){ return '<div class="row" style="gap:12px;align-items:center"><div class="emo" style="width:38px;height:38px;font-size:19px;background:#F3EEFB">' + r[0] + '</div><div style="flex:1 1 auto;min-width:0"><div style="font-weight:600;font-size:14px">' + r[1] + '</div><div class="small muted">' + r[2] + '</div></div></div>'; }).join('') + '</div>';
+  if (S.scNew) {
+    h += '<div class="card in full" style="border:2px solid var(--lav);display:grid;gap:10px"><div style="font-weight:700">🔑 กุญแจใหม่ (แสดงครั้งเดียว)</div>';
+    h += '<div id="scKey" style="font-family:ui-monospace,Menlo,monospace;font-size:13px;word-break:break-all;background:#F6F2FB;border-radius:12px;padding:10px 12px;user-select:all">' + esc(S.scNew) + '</div>';
+    h += '<button type="button" class="btn primary press" data-act="sccopy">คัดลอกกุญแจ</button>';
+    h += '<div class="small muted">วางกุญแจนี้ตอนติดตั้งคำสั่งลัด · อย่าส่งให้ใคร (คนที่มีกุญแจจดรายการแทนคุณได้ แต่ดูข้อมูลไม่ได้)</div></div>';
+  }
+  h += '<div class="card in full" style="padding:4px 14px"><div style="font-weight:700;padding:12px 0 4px">เครื่องที่ใช้คำสั่งลัด</div>';
+  if (S.sc === undefined || S.sc === null) h += '<div class="small muted" style="padding:10px 0 14px">กำลังโหลด...</div>';
+  else if (!S.sc.length) h += '<div class="small muted" style="padding:10px 0 14px">ยังไม่มี · กดสร้างกุญแจด้านล่างเพื่อเริ่ม</div>';
+  else S.sc.forEach(function(k){ h += '<div class="row" style="border-top:1px solid #F1EAF4;padding:12px 0;gap:10px;align-items:center"><div class="emo" style="width:36px;height:36px;font-size:18px;background:#E3F4FF">📱</div><div style="flex:1 1 auto;min-width:0"><div style="font-weight:600;font-size:14px">' + esc(k.label) + '</div><div class="small muted">สร้าง ' + esc(String(k.created).slice(0, 10)) + ' · ' + (k.last ? 'ใช้ล่าสุด ' + esc(k.last) : 'ยังไม่เคยใช้') + '</div></div><button type="button" class="pill press" data-act="scdel" data-id="' + esc(k.id) + '" style="border:0;background:#FFE3E3;color:#C2362F;font-weight:700;min-height:34px">ยกเลิก</button></div>'; });
+  h += '</div>';
+  if (!S.sc || S.sc.length < 5) h += '<div class="in full" style="display:grid;gap:8px"><label class="f" for="scLabel">ตั้งชื่อเครื่อง<input id="scLabel" class="inp" maxlength="30" value="iPhone"></label><button type="button" class="btn primary press" data-act="scnew">+ สร้างกุญแจคำสั่งลัด</button></div>';
+  h += '<div class="small muted in full" style="text-align:center">ทำเครื่องหาย? กด ยกเลิก ที่นี่ หรือพิมพ์ ลบเครื่องทั้งหมด ใน LINE</div>';
+  return h;
 }
 function drawPaySheet(){
   var p = S.pay, x = dueItem(p.key), d = S.d;
@@ -831,7 +858,27 @@ document.addEventListener('click', function(ev){
   var el = ev.target.closest('[data-act]'); if (!el) return;
   var a = el.getAttribute('data-act'), d = S.d;
   if (a === 'remind') return;
-  if (a === 'tab') { S.tab = +el.getAttribute('data-i'); S.animate = true; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  if (a === 'scnew') {
+    if (S.busy) return; S.busy = true;
+    var lb = ($('scLabel') && $('scLabel').value) || 'iPhone';
+    run('apiScCreate', TOKEN, lb).then(function(r){ S.busy = false; S.scNew = r.key; S.sc = null; render(); toast('สร้างกุญแจแล้ว 🔑'); }).catch(fail);
+    return;
+  }
+  if (a === 'sccopy') {
+    var kt = S.scNew || '';
+    var done = function(){ toast('คัดลอกแล้ว ✅'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(kt).then(done, function(){ toast('กดค้างที่กุญแจเพื่อคัดลอกนะ'); });
+    else toast('กดค้างที่กุญแจเพื่อคัดลอกนะ');
+    return;
+  }
+  if (a === 'scdel') {
+    if (S.busy) return;
+    if (!confirmTap(el, 'แตะอีกครั้งเพื่อยกเลิก')) return;
+    S.busy = true;
+    run('apiScDelete', TOKEN, el.getAttribute('data-id')).then(function(){ S.busy = false; S.sc = null; S.scNew = ''; render(); toast('ยกเลิกแล้ว 🔒'); }).catch(fail);
+    return;
+  }
+  if (a === 'tab') { if (S.tab === 12) S.scNew = ''; S.tab = +el.getAttribute('data-i'); S.animate = true; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
   if (a === 'month') { $('view').innerHTML = '<div class="loading">กำลังโหลด...</div>'; load(shiftYm(d.ym, +el.getAttribute('data-k'))); return; }
   if (a === 'char') {
     S.taps++; S.phrase++;
